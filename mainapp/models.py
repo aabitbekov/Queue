@@ -33,11 +33,6 @@ class Department(models.Model):
 
 
 class Applicant(models.Model):
-    class Category(models.TextChoices):
-        A = 'A', 'A'
-        A1 = 'A1', 'A1' 
-
-
     iin = models.CharField(max_length=12, verbose_name='ИИН', unique=True, validators=[MinLengthValidator(12)])
     fullname = models.CharField(max_length=150, verbose_name='ФИО')
     app_number = models.CharField(max_length=12, verbose_name='Номер заявки', unique=True, validators=[MinLengthValidator(12)])
@@ -46,7 +41,7 @@ class Applicant(models.Model):
     statusT = models.BooleanField(default=False, verbose_name="Статус ТЭ") 
     statusP = models.BooleanField(default=False, verbose_name="Статус ПЭ") 
     kpp = models.CharField(max_length=12, verbose_name="КПП")
-    category =  models.CharField(max_length=2, verbose_name="Категория", choices=Category.choices, default=Category.A1)
+    category =  models.CharField(max_length=8, verbose_name="Категория")
     class Meta:
         verbose_name = 'Заявитель'
         verbose_name_plural = 'Заявители'

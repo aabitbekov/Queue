@@ -27,12 +27,14 @@ class PracticeExamAdmin(admin.ModelAdmin):
     list_filter = ['date', 'time', 'applicant']
     
     # list_filter = ['date', 'auto']
-
+class AutoAdmin(admin.ModelAdmin):
+    list_display = ['department', 'grnz', 'category']
+    list_filter = ['department', 'grnz', 'category']
 
 # Register your models here.
 admin.site.register(City, CityAdmin)
 admin.site.register(Department, DepartmentAdmin)
 admin.site.register(Applicant, ApplicantAdmin)
 admin.site.register(Exam, ExamAdmin)
-admin.site.register(Auto)
+admin.site.register(Auto, AutoAdmin)
 admin.site.register(PracticeExam, PracticeExamAdmin)

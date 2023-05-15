@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from mainapp.models import Exam, Applicant, Department, City
+from mainapp.models import Exam, Applicant, Department, City, PracticeExam
 
 
 class ApplicantNumberSerializer(serializers.Serializer):
@@ -58,5 +58,9 @@ class ExamDetailSerializer(serializers.ModelSerializer):
         fields = ['date', 'time', 'department', 'applicants']
 
 
-
+class PracticeExamSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = PracticeExam
+        fields = '__all__'
 
