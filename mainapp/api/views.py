@@ -122,7 +122,7 @@ class SearchApplicantView(APIView):
         json_data = serializers.serialize('json', applicant)
     
         if applicant:
-            return HttpResponse({json_data}, 'json')
+            return Response(json_data, content_type="application/json")
         return Response({'find': False})
 
 class ExamEnrollView(APIView):

@@ -44,19 +44,17 @@ INSTALLED_APPS = [
 ]
 
 
-
 REST_FRAMEWORK = {
-#  'DEFAULT_PERMISSION_CLASSES': [
+#     'DEFAULT_PERMISSION_CLASSES': [
 #  'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-#  ]
- 'DEFAULT_PERMISSION_CLASSES': [
+#  ],
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ]
 }
-if not DEBUG:
-    REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = (
-            "rest_framework.renderers.JSONRenderer",
-        )
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
