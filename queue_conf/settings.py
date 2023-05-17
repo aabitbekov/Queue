@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -40,24 +40,21 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'mainapp',
     'corsheaders',
-    'rest_framework',
 ]
 
-
-REST_FRAMEWORK = {
-#     'DEFAULT_PERMISSION_CLASSES': [
-#  'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-#  ],
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ]
+REST_FRAMEWORK = { 
+    'DEFAULT_RENDERER_CLASSES': ( 
+        'rest_framework.renderers.JSONRenderer', 
+    ), 
+    'DEFAULT_PERMISSION_CLASSES': [ 
+        'rest_framework.permissions.IsAuthenticated', 
+    ] 
 }
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -65,6 +62,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_WHITELIST = [
+    'https://www.example.com',  # Add the allowed origins here
+    'https://subdomain.example.com',
+]
+
 
 ROOT_URLCONF = 'queue_conf.urls'
 

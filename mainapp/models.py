@@ -3,6 +3,7 @@ from django.core.validators import MinLengthValidator
 from django.utils import timezone
 from datetime import date, timedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 
 
 class City(models.Model):
@@ -60,10 +61,6 @@ class Exam(models.Model):
     class Meta:
         verbose_name = 'Экзамен (теория)'
         verbose_name_plural = 'Экзамены (теория)'
-    
-    def has_available_spots(self):
-        num_students = self.applicants.count()
-        return num_students < self.capacity
 
     def __str__(self):
         return f'{self.department} , {self.date}, {self.time}'
@@ -107,11 +104,16 @@ class PracticeExam(models.Model):
     auto = models.ForeignKey(Auto, on_delete=models.CASCADE, verbose_name="Авто")
     date = models.DateField(verbose_name="Дата", validators=[MinValueValidator(date.today()), MaxValueValidator(date.today() + timedelta(days=14))])
     time = models.TimeField(verbose_name="Время", default="9:00")
-    applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, verbose_name="Заявитель")
+    applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, verbose_name="Заявитель", null=True, blank=True)
 
     class Meta:
         verbose_name = 'Экзамен (практика)'
         verbose_name_plural = 'Экзамены (практика)'
 
+    def clean(self):
+           super().clean()
+           if self.applicant and not self.applicant.statusT:
+                raise ValidationError("Нельзя добавлять заявителей со отрицательным статусом тоеритического экзамена к практическому экзамену.")
+
     def __str__(self):
-        return f'{self.auto.department.name} , {self.date}, {self.time}, {self.applicant.iin}'
+        return f'{self.auto.department.name} , {self.date}, {self.time}'

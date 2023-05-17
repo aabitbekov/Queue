@@ -1,9 +1,5 @@
 from rest_framework import serializers
-from mainapp.models import Exam, Applicant, Department, City, PracticeExam
-
-
-class ApplicantNumberSerializer(serializers.Serializer):
-    app_number = serializers.CharField(max_length=12, min_length=12)
+from mainapp.models import *
 
 
 class CitySerializer(serializers.ModelSerializer):
@@ -59,8 +55,11 @@ class ExamDetailSerializer(serializers.ModelSerializer):
 
 
 class PracticeExamSerializer(serializers.ModelSerializer):
-    
     class Meta:
         model = PracticeExam
         fields = '__all__'
 
+class AutoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Auto
+        fields = '__all__'

@@ -1,5 +1,4 @@
 from django.contrib import admin
-
 from .models import City, Department, Applicant, Exam, Auto, PracticeExam
 
 class CityAdmin(admin.ModelAdmin):
