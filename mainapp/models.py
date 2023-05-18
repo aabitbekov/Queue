@@ -1,9 +1,9 @@
 from django.db import models
-from django.core.validators import MinLengthValidator
 from django.utils import timezone
 from datetime import date, timedelta
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator, MinLengthValidator
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
 
 
 class City(models.Model):
@@ -33,6 +33,22 @@ class Department(models.Model):
         return f'{self.city} , {self.name}'
 
 
+class KazakhstanPhoneField(models.CharField):
+    default_validators = [RegexValidator(
+        regex=r'^\+7\d{10}$',
+        message="Enter a valid phone number in the format: '+7XXXXXXXXXX'"
+    )]
+
+    def __init__(self, *args, **kwargs):
+        kwargs['max_length'] = 12  # '+7' + 10 digits
+        kwargs['verbose_name'] = 'Номер телефона'
+        kwargs['blank'] = True
+        kwargs['null'] = True
+        super().__init__(*args, **kwargs)
+
+
+
+
 class Applicant(models.Model):
     iin = models.CharField(max_length=12, verbose_name='ИИН', unique=True, validators=[MinLengthValidator(12)])
     fullname = models.CharField(max_length=150, verbose_name='ФИО')
@@ -43,13 +59,14 @@ class Applicant(models.Model):
     statusP = models.BooleanField(default=False, verbose_name="Статус ПЭ") 
     kpp = models.CharField(max_length=12, verbose_name="КПП")
     category =  models.CharField(max_length=8, verbose_name="Категория")
+    phone_number = KazakhstanPhoneField()
     class Meta:
         verbose_name = 'Заявитель'
         verbose_name_plural = 'Заявители'
 
     
     def __str__(self):
-        return f'{self.app_number} , {self.fullname}'
+        return f'{self.app_number}'
 
 
 class Exam(models.Model):
@@ -69,25 +86,30 @@ class Exam(models.Model):
 
 class Auto(models.Model):
     class Category(models.TextChoices):
-        A = 'A', 'A'
         A1 = 'A1', 'A1'
-        B = 'B', 'B'
         B1 = 'B1', 'B1'
-        C = 'C', 'C'
+        A = 'A', 'A'
+        B = 'B', 'B'
         C1 = 'C1', 'C1'
-
+        C = 'C', 'C'
+        D1 = 'D1', 'D1'
+        D = 'D' , 'D'
+        BE = 'BE' , 'BE'
+        C1E = 'C1E' , 'C1E'
+        CE = 'CE' , 'CE'
+        D1E = 'D1E' , 'D1E'
+        DE = 'DE' , 'DE'
 
     class Transmission(models.TextChoices):
         MKPP = 'MT', 'Механика'
         AKPP = 'AT', 'АКПП'
-        none = 'NO', 'Другое'
 
 
     department = models.ForeignKey(Department, on_delete=models.CASCADE, verbose_name="СпецЦОН")
     mark = models.CharField(max_length=56, verbose_name="Марка авто")
     model = models.CharField(max_length=56, verbose_name="Модель авто")
     grnz = models.CharField(max_length=8, verbose_name="ГРНЗ")
-    category =  models.CharField(max_length=2, verbose_name="Категория", choices=Category.choices, default=Category.A1)
+    category =  models.CharField(max_length=3, verbose_name="Категория", choices=Category.choices, default=Category.A1)
     transmission = models.CharField(max_length=2,verbose_name="КПП",
                     choices=Transmission.choices,
                     default=Transmission.AKPP)
@@ -97,7 +119,7 @@ class Auto(models.Model):
         verbose_name_plural = 'Авто'
 
     def __str__(self):
-        return f"{self.department}, {self.mark}, {self.model}"
+        return f"{self.mark}, {self.model}"
 
 
 class PracticeExam(models.Model):
@@ -117,3 +139,13 @@ class PracticeExam(models.Model):
 
     def __str__(self):
         return f'{self.auto.department.name} , {self.date}, {self.time}'
+
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, verbose_name='Департамент')
+
+    class Meta:
+        verbose_name = 'Профиль пользователя'
+        verbose_name_plural = 'Профили пользователей'

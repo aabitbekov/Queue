@@ -23,10 +23,9 @@ urlpatterns = [
     path('exam/detail/<pk>/', views.ExamDetailListView.as_view(), name='exam_detail'), # Get exam data by id with applicants list
     path('exam/enroll/queue/', views.ExamEnrollView.as_view()), # Enroll to exam POST {"exam_id" : "exam_id", "user_id" : "user_id" }
 
-    path('cars/', views.CarsListView.as_view(), name='cars'),
-    path('practice/exams', views.PracticeExamListView.as_view(), name='practice_exams'),
-    path('practice/free/exams/', views.PracticeExamListViewByDepartmentAndCategory.as_view(), name='practice_free_exams'),
-    path('practice/enroll/queue/', views.PractcieExamEnrollView.as_view()),
-
+    path('cars/', views.CarsListView.as_view(), name='cars'), # GET all cars
+    path('practice/exams', views.PracticeExamListView.as_view(), name='practice_exams'), # GET all exams
+    path('practice/free/exams/', views.PracticeExamListViewByDepartmentAndCategory.as_view(), name='practice_free_exams'), # POST free exams by {"department_id" : "department_id", "category" : "category", "kpp" : "kpp" }
+    path('practice/enroll/queue/', views.PractcieExamEnrollView.as_view()), # POST Enroll to pracice exam {"exam_id":exam_id, "user_id":user_id}
 
 ]

@@ -18,6 +18,16 @@ from django.db.models import Count, F, Q
 from django.utils import timezone
 
 
+def getMainCategory(category='B, C1'):
+    index = 0
+    all_categories = ['A1', 'B1', 'A', 'B', 'C1', 'C', 'D1', 'D', 'BE', 'C1E', 'CE', 'D1E', 'DE']
+    categories_list = [category.replace(' ', '') for category in category.split(',')]
+    for category in categories_list:
+        if index < all_categories.index(category):
+            index = all_categories.index(category)
+    return all_categories[index]
+
+
 class ApplicantListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -112,6 +122,13 @@ class SearchApplicantView(APIView):
             return HttpResponse(json_data)
         return Response({'find': False})
 
+class CarsListView(generics.ListAPIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = AutoSerializer
+    queryset = Auto.objects.all()
+
+
 
 class ExamEnrollView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -129,35 +146,46 @@ class ExamEnrollView(APIView):
         if app.statusT:
              return Response({"error": "Нельзя добавлять заявителей со положительным статусом тоеритического экзамена к тоеритическому экзамену."},
                                                                                                            status=status.HTTP_400_BAD_REQUEST)
+        applicant_exists = Exam.objects.filter(applicants__app_number='your_app_number').exists()
         exam.applicants.add(applicant)
         return Response({'enrolled': True})
 
 
-class CarsListView(generics.ListAPIView):
+class PracticeExamListViewByDepartmentAndCategory(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    serializer_class = AutoSerializer
-    queryset = Auto.objects.all()
-
-class PracticeExamListViewByDepartmentAndCategory(APIView):
+    
     def post(self, request):
         try:
             dep_id = get_object_or_404(Department, pk=request.data['department_id'])
         except Http404:
             error_message = 'Department not found.'  # Customize the error message as desired
             return JsonResponse({'error': error_message}, status=404)
+
+
         tomorrow = date.today() + timedelta(days=1)
-        category = request.data['category']  # add functions for double of more category
         kpp = request.data['kpp']
+        if kpp == 'Механика':
+            kpp = 'MT'
+        category = getMainCategory(request.data['category'])
         practice_exams = PracticeExam.objects.filter(
                 Q(auto__department_id=dep_id) & 
                 Q(auto__category=category) & 
                 Q(auto__transmission=kpp) & 
-                Q(applicant__isnull=True) &
-                Q(date__gte=tomorrow))
+                Q(applicant__isnull=True)
+                #  &
+                # Q(date__gte=tomorrow)
+                )
+        print(practice_exams)
         serializer = PracticeExamSerializer(practice_exams, many=True)
         return Response(serializer.data)
 
+
+practice_exams = PracticeExam.objects.filter(
+                Q(auto__department_id=1) & 
+                Q(auto__category='B') & 
+                Q(auto__transmission='MT') & 
+                Q(applicant__isnull=True))
 
 class PracticeExamListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
