@@ -6,7 +6,6 @@ from django.db.models import Count
 from django.core import serializers
 from django.http import JsonResponse
 from rest_framework import status
-import json
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -16,7 +15,7 @@ from django.http import HttpResponse
 from datetime import date
 from django.db.models import Count, F, Q
 from django.utils import timezone
-
+from django.http import Http404
 
 def getMainCategory(category='B, C1'):
     index = 0
@@ -64,7 +63,7 @@ class DepartmentDetailListView(generics.RetrieveUpdateAPIView):
 class ExamListByDepartmentView(APIView):
     def get(self, request, department_id):
         start_date = timezone.now().date()
-        end_date = start_date + timezone.timedelta(week=25)
+        end_date = start_date + timezone.timedelta(weeks=25)
         exams = Exam.objects.annotate(num_applicants=Count('applicants')).filter(
             num_applicants__lt=F('department__capacity'),
             date__range=(start_date, end_date),
@@ -139,15 +138,20 @@ class ExamEnrollView(APIView):
             exam = get_object_or_404(Exam, pk=request.data['exam_id'])
         except Http404:
              return JsonResponse({'error': 'Exam not found.'}, status=404)
+        
         try:
             app = get_object_or_404(Applicant, pk=request.data['user_id'])
         except Http404:
              return JsonResponse({'error': 'Applicant not found.'}, status=404)
+        
         if app.statusT:
              return Response({"error": "Нельзя добавлять заявителей со положительным статусом тоеритического экзамена к тоеритическому экзамену."},
-                                                                                                           status=status.HTTP_400_BAD_REQUEST)
-        applicant_exists = Exam.objects.filter(applicants__app_number='your_app_number').exists()
-        exam.applicants.add(applicant)
+                                                                                status=status.HTTP_400_BAD_REQUEST)
+        
+        
+        if Exam.objects.filter(Q(applicants__app_number=app.app_number) & Q(date=exam.date)).exists():
+            return Response({'Вы уже записаны': True})
+        exam.applicants.add(app)
         return Response({'enrolled': True})
 
 
@@ -172,9 +176,8 @@ class PracticeExamListViewByDepartmentAndCategory(APIView):
                 Q(auto__department_id=dep_id) & 
                 Q(auto__category=category) & 
                 Q(auto__transmission=kpp) & 
-                Q(applicant__isnull=True)
-                #  &
-                # Q(date__gte=tomorrow)
+                Q(applicant__isnull=True) &
+                Q(date__gte=tomorrow)
                 )
         print(practice_exams)
         serializer = PracticeExamSerializer(practice_exams, many=True)
@@ -207,7 +210,8 @@ class PractcieExamEnrollView(APIView):
             app = get_object_or_404(Applicant, pk=request.data['user_id'])
         except Http404:
              return JsonResponse({'error': 'Applicant not found.'}, status=404)
-
+        if exam.applicant:
+            return JsonResponse({'error': 'Exam not found.'}, status=404)
         if app.statusT:
             exam.applicant = app
             exam.save()
