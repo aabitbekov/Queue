@@ -2,6 +2,9 @@ from django.contrib import admin
 from .models import *
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.db.models import Q
+from datetime import date
+
 
 class CustomUserAdmin(UserAdmin):
     def save_model(self, request, obj, form, change):
@@ -51,7 +54,8 @@ class ExamAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs  # Для суперпользователя отображаем все данные
-        return qs.filter(department_id=request.user.profile.department.id)
+        return qs.filter(Q(department_id=request.user.profile.department.id) &
+                        Q(date=date.today()))
 
 class PracticeExamAdmin(admin.ModelAdmin):
     # search_fields = ['applicant.iin', 'auto.department.name']
@@ -67,7 +71,8 @@ class PracticeExamAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs  # Для суперпользователя отображаем все данные
-        return qs.filter(auto__department_id=request.user.profile.department.id)
+        return qs.filter(Q(auto__department_id=request.user.profile.department.id) &
+                        Q(date=date.today()))
     
 
 class AutoAdmin(admin.ModelAdmin):
