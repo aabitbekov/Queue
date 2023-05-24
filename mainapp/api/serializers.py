@@ -57,7 +57,7 @@ class ExamDetailSerializer(serializers.ModelSerializer):
 class PracticeExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = PracticeExam
-        fields = '__all__'
+        fields = ['id', 'date', 'time']
 
 class AutoSerializer(serializers.ModelSerializer):
     class Meta:

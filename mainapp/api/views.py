@@ -112,14 +112,35 @@ class ExamDetailListView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class SearchApplicantView(APIView):
-    def get(self, request, app_number):
-        # LOGIC FOR FIND APPLICANT FROM IISCON2 API (REQUEST) MUST BE HERE
-        applicant = Applicant.objects.filter(app_number=app_number)
-        json_data = serializers.serialize('json', applicant)
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, app_number):
+
+        # LOGIC FOR FIND APPLICANT FROM IISCON2 API (REQUEST) MUST BE HERE AND SAVE APPLICANT TO DB
+       
+        try:
+            applicant = Applicant.objects.get(app_number=app_number)
+        except:
+            return Response({'find': False})
         if applicant:
-            return HttpResponse(json_data)
-        return Response({'find': False})
+             return Response({
+          'id' : applicant.id,
+          'iin': applicant.iin,
+          'fullname': applicant.fullname,
+          'app_number': applicant.app_number, 
+          'city': applicant.department.city.name,
+          'department': applicant.department.name, 
+          'department_code': applicant.department.id, 
+          'service': applicant.service, 
+          'statusT': applicant.statusT, 
+          'statusP': applicant.statusP, 
+          'kpp': applicant.kpp, 
+          'category': applicant.category, 
+          'phone_number': applicant.phone_number
+            
+        }) 
+
 
 class CarsListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
@@ -149,10 +170,16 @@ class ExamEnrollView(APIView):
                                                                                 status=status.HTTP_400_BAD_REQUEST)
         
         
-        if Exam.objects.filter(Q(applicants__app_number=app.app_number) & Q(date=exam.date)).exists():
+        if Exam.objects.filter(Q(applicants__app_number=app.app_number) & Q(date=exam.date)).exists(): # Проверка записан ли пользаватель на тот же день
             return Response({'Вы уже записаны': True})
+
+        # Проверки на запись на тоерию
+
         exam.applicants.add(app)
         return Response({'enrolled': True})
+
+
+
 
 
 class PracticeExamListViewByDepartmentAndCategory(APIView):
@@ -160,18 +187,23 @@ class PracticeExamListViewByDepartmentAndCategory(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+
         try:
             dep_id = get_object_or_404(Department, pk=request.data['department_id'])
         except Http404:
-            error_message = 'Department not found.'  # Customize the error message as desired
-            return JsonResponse({'error': error_message}, status=404)
+            return JsonResponse({'error': 'Department not found.' }, status=404)
 
 
         tomorrow = date.today() + timedelta(days=1)
         kpp = request.data['kpp']
-        if kpp == 'Механика':
+        if kpp.lower() == 'механика':
             kpp = 'MT'
+        if kpp.lower() == 'автомат':
+            kpp = 'AT'
         category = getMainCategory(request.data['category'])
+
+        print(category, dep_id, kpp)
+        
         practice_exams = PracticeExam.objects.filter(
                 Q(auto__department_id=dep_id) & 
                 Q(auto__category=category) & 
@@ -181,14 +213,9 @@ class PracticeExamListViewByDepartmentAndCategory(APIView):
                 )
         print(practice_exams)
         serializer = PracticeExamSerializer(practice_exams, many=True)
+        print(serializer.data)
         return Response(serializer.data)
 
-
-practice_exams = PracticeExam.objects.filter(
-                Q(auto__department_id=1) & 
-                Q(auto__category='B') & 
-                Q(auto__transmission='MT') & 
-                Q(applicant__isnull=True))
 
 class PracticeExamListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
