@@ -22,8 +22,9 @@ class CityAdmin(admin.ModelAdmin):
     search_fields = ['name']
     ordering = ['id']
 
+
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ['city', 'name']
+    list_display = ['city', 'name', 'id']
     search_fields = ['name']
     list_filter = ['haveAutodrom', 'haveExamClass', 'capacity']
     ordering = ['city']
@@ -33,6 +34,7 @@ class DepartmentAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs  # Для суперпользователя отображаем все данные
         return qs.filter(id=request.user.profile.department.id)
+
 
 class ApplicantAdmin(admin.ModelAdmin):
     list_display = ['iin', 'fullname', 'department', 'service']

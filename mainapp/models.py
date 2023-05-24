@@ -18,6 +18,7 @@ class City(models.Model):
 
 
 class Department(models.Model):
+    id = models.CharField(max_length=16, verbose_name="Код Цона", primary_key=True)
     name = models.CharField(max_length=72, verbose_name='ЦОН', unique=True)
     address = models.CharField(max_length=72, verbose_name='Адрес местонахождения', default='')
     city = models.ForeignKey(City, on_delete=models.CASCADE, verbose_name='Город')
@@ -60,6 +61,7 @@ class Applicant(models.Model):
     kpp = models.CharField(max_length=12, verbose_name="КПП")
     category =  models.CharField(max_length=8, verbose_name="Категория")
     phone_number = KazakhstanPhoneField()
+    
     class Meta:
         verbose_name = 'Заявитель'
         verbose_name_plural = 'Заявители'
