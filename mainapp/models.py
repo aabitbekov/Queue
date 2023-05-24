@@ -18,9 +18,9 @@ class City(models.Model):
 
 
 class Department(models.Model):
-    id = models.CharField(max_length=16, verbose_name="Код Цона", primary_key=True)
+    id = models.CharField(max_length=20, verbose_name="Код Цона", primary_key=True)
     name = models.CharField(max_length=72, verbose_name='ЦОН', unique=True)
-    address = models.CharField(max_length=72, verbose_name='Адрес местонахождения', default='')
+    address = models.CharField(max_length=126, verbose_name='Адрес местонахождения', default='')
     city = models.ForeignKey(City, on_delete=models.CASCADE, verbose_name='Город')
     haveAutodrom = models.BooleanField(default=False, verbose_name="Автодром") 
     haveExamClass = models.BooleanField(default=False, verbose_name="Экзаменационный класс")
