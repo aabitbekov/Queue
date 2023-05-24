@@ -1,5 +1,5 @@
 from rest_framework import generics
-from mainapp.models import Applicant, Department, Exam, City, PracticeExam
+from mainapp.models import *
 from mainapp.api.serializers import *
 from rest_framework.response import Response
 from django.db.models import Count
@@ -16,6 +16,7 @@ from datetime import date
 from django.db.models import Count, F, Q
 from django.utils import timezone
 from django.http import Http404
+from mainapp.tasks import *
 
 def getMainCategory(category='B, C1'):
     index = 0
@@ -59,6 +60,29 @@ class DepartmentDetailListView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Department.objects.all()
     serializer_class = DepartmentDetailSerializer 
+
+
+class PhoneNumberVerificationView(APIView):
+    def get(self, request, iin):
+        # For Reddis
+        # getPhoneNumberFromBMG.delay(iin)  
+        # For locally 
+        getPhoneNumberFromBMG(iin)  
+        return JsonResponse({'error': 'Applicant not found.'}, status=404)
+
+class CodeVerificationView(APIView):
+    def post(self, request):
+        iin = request.data['iin']
+        code = request.data['code']
+        print(iin, code)
+        try:
+            user = VerifySMS.objects.get(iin=request.data['iin'])
+            if user.code == code:
+                return Response({"Success": True})
+            else:
+                return Response({"Success": False})
+        except VerifySMS.DoesNotExist:
+            return Response({'error': 'user not found.'}, status=404)
 
 class ExamListByDepartmentView(APIView):
     def get(self, request, department_id):

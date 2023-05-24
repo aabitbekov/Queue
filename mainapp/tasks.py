@@ -2,6 +2,7 @@ from celery import shared_task
 from datetime import datetime, time, timedelta, date
 from django.utils import timezone
 from .models import *
+import random
 
 @shared_task
 def clean_exams():
@@ -51,8 +52,67 @@ def generate_practice_exams():
 
 
 @shared_task
+def getPhoneNumberFromBMG(iin):
+    bmg_gateway_token = GatewayToken.objects.get(id=2).access_token
+    
+    # request with iin to BMG
+
+    print(iin)
+    phone_number = '' # here must be phone number from BMG 
+    code = random.randint(100000, 999999)
+    if VerifySMS.objects.filter(iin=iin).exists():
+        verify = VerifySMS.objects.get(iin=iin)
+        verify.code = code
+        verify.save()
+    else:
+        VerifySMS(iin=iin, code=code, phone_number=phone_number).save()
+
+
+    # send_sms.delay(phone_number, message=f'Ваш код верицикации {code}')
+    send_sms(phone_number, message=f'Ваш код верицикации {code}')
+
+@shared_task
+def getTokenForSMSGateway():
+
+    # logic request
+
+
+    access_token = ""
+    refresh_token = ""
+    try:
+        token = GatewayToken.objects.get(id=1)
+        token.access_token = access_token
+        token.refresh_token = refresh_token
+        token.save()
+    except:
+        GatewayToken(id=1, access_token=access_token, refresh_token=refresh_token).save()
+
+
+@shared_task
+def getTokenForBMGGateway():
+
+    # logic request
+
+
+    access_token = ""
+    refresh_token = ""
+    try:
+        token = GatewayToken.objects.get(id=2)
+        token.access_token = access_token
+        token.refresh_token = refresh_token
+        token.save()
+    except:
+        GatewayToken(id=2, access_token=access_token, refresh_token=refresh_token).save()
+
+
+
+@shared_task
 def send_sms(phone_number, message):
-    print(f"To {phone_number} message: {message}")
+    # Token to SMS GATEWAY 
+    sms_gateway_token = GatewayToken.objects.get(id=1).access_token
+    # logic must be here
+
+    print(f"To {phone_number} message: {message} using {sms_gateway_token}")
 
 
     

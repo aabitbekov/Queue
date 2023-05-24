@@ -13,6 +13,8 @@ urlpatterns = [
     path('departments/<pk>/', views.DepartmentDetailListView.as_view(), name='department_detail'), # Get all department data by id
 
     path('search/applicant/<app_number>/', views.SearchApplicantView.as_view()), # Search applicant from anoter API or from DATABASE
+    path('verify/<iin>/', views.PhoneNumberVerificationView.as_view()),
+    path('verify/', views.CodeVerificationView.as_view()), # {"iin" : "iin", "code":"code"}
 
     path('applicant/', views.ApplicantListView.as_view(), name='applicant'), # Get all applicats data
     path('applicant/<pk>/', views.ApplicantDetailListView.as_view(), name='applicant_detail'), # Get applicat data by id

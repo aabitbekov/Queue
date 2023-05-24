@@ -156,4 +156,22 @@ class UserProfile(models.Model):
         return f'{self.user.username}'
     
 
+class GatewayToken(models.Model):
+    access_token = models.TextField()
+    refresh_token = models.TextField()
+    created = models.DateTimeField(auto_now=True)
+
+
+    def save(self, *args, **kwargs):
+        ''' On save, update timestamps '''
+        self.created = timezone.now()
+        return super(GatewayToken, self).save(*args, **kwargs)
+
+
+class VerifySMS(models.Model):
+    iin = models.CharField(max_length=12, verbose_name='ИИН', unique=True, validators=[MinLengthValidator(12)])
+    phone_number = KazakhstanPhoneField()
+    code = models.CharField(verbose_name="code")
+    
+
     
