@@ -173,6 +173,23 @@ def send_sms(phone_number, message):
     }
     requests.request("POST", url, headers=headers, data=payload)
 
+
+@shared_task
+def BrokenCars():
+    now = timezone.now() + timedelta(hours=6)
+    exams = PracticeExam.objects.filter(date=now, status='С')
+    saturday = now.date() + timedelta(days=5 - now.weekday())
+    for exam in exams:    
+        for i in range(5):
+            saturday += timedelta(days=i*7) 
+            saturday_exam = PracticeExam.objects.filter(date=saturday, auto=exam.auto, applicant__isnull=True).order_by('time').first()
+            if saturday_exam:
+                saturday_exam.applicant = exam.applicant
+                saturday_exam.save()
+                # exam.delete()
+                send_sms.delay(exam.applicant.phone_number, f"Вас успешно записали на практический экзамен дата {saturday_exam.date} {saturday_exam.time}. Ждем вас по адресу {saturday_exam.auto.department.address}")
+
+
 def getTheoryResults(iin):
     token = GatewayToken.objects.get(id=3).access_token
     url = "http://10.51.203.172:8080/getInfoPDD"        #bmg.gov4c.kz 

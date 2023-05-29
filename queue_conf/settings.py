@@ -1,6 +1,6 @@
 from pathlib import Path
-from datetime import timedelta
-from celery.schedules import crontab
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -17,7 +17,6 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -78,23 +77,14 @@ WSGI_APPLICATION = 'queue_conf.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-
     'default': {
-
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-
         'NAME': 'postgres',
-
         'USER': 'postgres',
-
         'PASSWORD': 'postgres',
-
         'HOST': 'localhost',
-
         'PORT': '5432',
-
     }
-
 }
 
 
@@ -129,6 +119,7 @@ USE_I18N = True
 USE_TZ = True
 
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
@@ -137,27 +128,10 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # URL для подключения к Redis
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # URL для хранения результатов задач
-
-# CELERY_BEAT_SCHEDULE = {
-#     'getBMGToken': {
-#         'task': 'queue_conf.mainapp.tasks.getTokenForBMGGateway',
-#         'schedule': crontab(minute='*/59'),
-#     },
-#     'getSMSToken': {
-#         'task': 'queue_conf.mainapp.tasks.getTokenForSMSGateway',
-#         'schedule': crontab(minute='*/59'),
-#     },
-#     'getTExamToken': {
-#         'task': 'queue_conf.mainapp.tasks.getTokenForTExamGateway',
-#         'schedule': crontab(minute='*/59'),
-#     },
-# }
-
 
 JAZZMIN_SETTINGS = {
     # title of the window (Will default to current_admin_site.site_title if absent or None)
