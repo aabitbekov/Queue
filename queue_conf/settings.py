@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,7 +13,6 @@ SECRET_KEY = 'django-insecure-y0v8w8h1$528c-+#tsgtsd#@i^atr21a=31k3nqw*emsmkmfea
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
 ALLOWED_HOSTS = []
 
 
@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'mainapp',
     'corsheaders',
+    'django_celery_results',
+    'django_celery_beat',
 ]
 
 REST_FRAMEWORK = { 
@@ -81,7 +83,7 @@ DATABASES = {
 
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
 
-        'NAME': 'postgresuser',
+        'NAME': 'postgres',
 
         'USER': 'postgres',
 
@@ -131,12 +133,30 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# STATIC_ROOT = '/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # URL для подключения к Redis
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # URL для хранения результатов задач
+
+# CELERY_BEAT_SCHEDULE = {
+#     'getBMGToken': {
+#         'task': 'queue_conf.mainapp.tasks.getTokenForBMGGateway',
+#         'schedule': crontab(minute='*/59'),
+#     },
+#     'getSMSToken': {
+#         'task': 'queue_conf.mainapp.tasks.getTokenForSMSGateway',
+#         'schedule': crontab(minute='*/59'),
+#     },
+#     'getTExamToken': {
+#         'task': 'queue_conf.mainapp.tasks.getTokenForTExamGateway',
+#         'schedule': crontab(minute='*/59'),
+#     },
+# }
 
 
 JAZZMIN_SETTINGS = {
@@ -162,13 +182,13 @@ JAZZMIN_SETTINGS = {
     "site_logo_classes": "img-circle",
 
     # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
-    "site_icon": "mainapp\static\logo.png",
+    # "site_icon": "mainapp\static\logo.png",
 
     # Welcome text on the login screen
     "welcome_sign": "ИИС ЦОН ВУ",
 
     # Copyright on the footer
-    "copyright": "НАО ГК ПДГ",
+    "copyright": '''НАО "Государственная корпорация "Правительство для граждан"''',
 
     # List of model admins to search from the search bar, search bar omitted if excluded
     # If you want to use a single search field you dont need to use a list, you can use a simple string 
@@ -229,6 +249,7 @@ JAZZMIN_SETTINGS = {
         "mainapp.Auto": "fas fa-solid fa-car",
         "mainapp.Exam": "fas fa-sharp fa-regular fa-certificate",
         "mainapp.PracticeExam": "fas fa-sharp fa-regular fa-certificate",
+        "mainapp.UserProfile": "fas fa-users",
         "auth": "fas fa-users-cog",
         "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",

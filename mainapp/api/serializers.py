@@ -58,8 +58,23 @@ class PracticeExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = PracticeExam
         fields = ['id', 'date', 'time']
-
-class AutoSerializer(serializers.ModelSerializer):
+    
+class AutoSerializer(serializers.Serializer):
     class Meta:
         model = Auto
         fields = '__all__'
+
+class PracticeExamDetailSerializer(serializers.ModelSerializer):
+    applicant = serializers.SerializerMethodField()
+    auto = serializers.CharField(source='auto.grnz')
+
+    def get_applicant(self, obj):
+        if obj.applicant is not None:
+            return obj.applicant.iin
+        return None
+    
+    class Meta:
+        model = PracticeExam
+        fields = ['id', 'auto', 'applicant', 'date', 'time']
+
+

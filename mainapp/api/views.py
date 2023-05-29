@@ -3,7 +3,6 @@ from mainapp.models import *
 from mainapp.api.serializers import *
 from rest_framework.response import Response
 from django.db.models import Count
-from django.core import serializers
 from django.http import JsonResponse
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -11,22 +10,161 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
-from django.http import HttpResponse
-from datetime import date
+from datetime import datetime, timedelta
 from django.db.models import Count, F, Q
 from django.utils import timezone
 from django.http import Http404
 from mainapp.tasks import *
+import random
+from .getMainCategory import getMainCategory
+from .checkers import check_active_practice_exams, check_past_exams, check_count_exams
 
-def getMainCategory(category='B, C1'):
-    index = 0
-    all_categories = ['A1', 'B1', 'A', 'B', 'C1', 'C', 'D1', 'D', 'BE', 'C1E', 'CE', 'D1E', 'DE']
-    categories_list = [category.replace(' ', '') for category in category.split(',')]
-    for category in categories_list:
-        if index < all_categories.index(category):
-            index = all_categories.index(category)
-    return all_categories[index]
+class PhoneNumberVerificationView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, iin):
+        phone_number = getPhoneNumberFromBMG(iin)
+        if phone_number == False:
+            return Response({'error': 'Заявитель с таким иин не найден.'}, status=200)
+        code = random.randint(100000, 999999)
+        if VerifySMS.objects.filter(iin=iin).exists():
+            verify = VerifySMS.objects.get(iin=iin)
+            verify.code = code
+            verify.save()
+        else:
+            VerifySMS(iin=iin, code=code, phone_number=phone_number).save()
+        task = send_sms.delay(phone_number, message=f'Ваш код для авторизации {code}')  
+        return Response({'success': True}, status=200)
+
+
+
+class CodeVerificationView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            user = VerifySMS.objects.get(iin=request.data['iin'])
+            if user.code == request.data['code']:
+                res = getTheoryResults(request.data['iin'])
+                if res == False:
+                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=200)
+                department_id = res[0]
+                category = res[1]
+                statusT = res[2]
+                if statusT:
+                    dep = Department.objects.get(id=department_id)
+                    category = getMainCategory(category)
+                    try:
+                        applicant = Applicant.objects.get(iin=user.iin)
+                        if applicant.statusT != statusT:
+                            applicant.department.id = department_id
+                            applicant.statusT = statusT
+                            applicant.category = category
+                            applicant.save
+                    except Applicant.DoesNotExist:
+                        applicant = Applicant.objects.get_or_create(iin=user.iin, department=dep, statusT=statusT, statusP=False, kpp="MT", category=category, phone_number=user.phone_number)
+                    return Response({
+                        "id" : applicant.id,
+                        "iin" : applicant.iin,
+                        "department_id" : applicant.department.id,
+                        "city" : dep.city.name,
+                        "department" : dep.name,
+                        "category" : applicant.category
+                        })
+                else:
+                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=200)
+
+            else:
+                return Response({"success": False})
+        except VerifySMS.DoesNotExist:
+            return Response({'error': 'user not found.'}, status=200)
+        
+
+
+class PracticeExamListViewByDepartmentAndCategory(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            dep = get_object_or_404(Department, pk=request.data['department_id'])
+        except Http404:
+            return Response({'error': 'Department not found.' }, status=404)
+        
+        try:
+            app = Applicant.objects.get(iin=request.data['iin'])
+        except Applicant.DoesNotExist:
+            return Response({'error': 'Applicant not found.'}, status=404)
+    
+        #First Checker
+        if check_active_practice_exams(app.iin):
+            return Response({'error': 'Applicant have active exam.'}, status=200)
+        else:
+            #Second Checker
+            res = check_count_exams(app.iin)
+            if res['error'] != 'Null':
+                return Response(res, status=200)
+            else:
+                tomorrow = check_past_exams(app.iin)
+
+        kpp = request.data['kpp'] # MT or AT
+        if kpp != app.kpp:
+            app.kpp == kpp
+            app.save()
+        category = getMainCategory(request.data['category'])
+        # practice_exams = PracticeExam.objects.extra(where=["EXTRACT (DOW FROM date) != 6"])
+        practice_exams = PracticeExam.objects.filter(
+                Q(auto__department_id=dep.id) & 
+                Q(auto__category=category) & 
+                Q(auto__transmission=kpp) & 
+                Q(applicant__isnull=True) &
+                Q(date__gte=tomorrow)
+                )
+        serializer = PracticeExamSerializer(practice_exams, many=True)
+        return Response(serializer.data)
+
+
+
+class PractcieExamEnrollView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        try:
+            exam = get_object_or_404(PracticeExam, pk=request.data['exam_id'])
+        except Http404:
+            return JsonResponse({'error': 'Exam not found.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            app = get_object_or_404(Applicant, pk=request.data['user_id'])
+        except Http404:
+             return JsonResponse({'error': 'Applicant not found.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if exam.applicant:
+            return JsonResponse({'error': 'Exam not found.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if app.statusT:
+            now = datetime.now() + timedelta(hours=6)
+            if check_active_practice_exams(app.iin):
+                return Response({"error": "У заявителя есть активные экзамены."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            elif check_past_exams(app.iin) != now.date():
+                return Response({"error": "У заявителя есть активные экзамены.Прошу выбрать подходящее время.(После проваленной попытки заявитель в течении 7 дней не может быть допущен к экзамену)"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            else:
+                exam.applicant = app
+                exam.save()
+                
+                # print(app.phone_number, f"Вы успешно записались на практический экзамен дата {exam.date} {exam.time}. Ждем вас по адресу {exam.auto.department.address}")
+                send_sms.delay(app.phone_number, f"Вы успешно записались на практический экзамен дата {exam.date} {exam.time}. Ждем вас по адресу {exam.auto.department.address}")
+                return Response({'enrolled': True})
+        else:
+            return Response({"error": "Нельзя добавлять заявителей со отрицательным статусом тоеритического экзамена к практическому экзамену."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        
 
 class ApplicantListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
@@ -62,27 +200,8 @@ class DepartmentDetailListView(generics.RetrieveUpdateAPIView):
     serializer_class = DepartmentDetailSerializer 
 
 
-class PhoneNumberVerificationView(APIView):
-    def get(self, request, iin):
-        # For Reddis
-        # getPhoneNumberFromBMG.delay(iin)  
-        # For locally 
-        getPhoneNumberFromBMG(iin)  
-        return JsonResponse({'error': 'Applicant not found.'}, status=404)
 
-class CodeVerificationView(APIView):
-    def post(self, request):
-        iin = request.data['iin']
-        code = request.data['code']
-        print(iin, code)
-        try:
-            user = VerifySMS.objects.get(iin=request.data['iin'])
-            if user.code == code:
-                return Response({"Success": True})
-            else:
-                return Response({"Success": False})
-        except VerifySMS.DoesNotExist:
-            return Response({'error': 'user not found.'}, status=404)
+
 
 class ExamListByDepartmentView(APIView):
     def get(self, request, department_id):
@@ -139,30 +258,22 @@ class SearchApplicantView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, app_number):
-
-        # LOGIC FOR FIND APPLICANT FROM IISCON2 API (REQUEST) MUST BE HERE AND SAVE APPLICANT TO DB
-       
+    def get(self, request, iin):
         try:
-            applicant = Applicant.objects.get(app_number=app_number)
+            applicant = Applicant.objects.get(iin=iin)
         except:
             return Response({'find': False})
         if applicant:
              return Response({
           'id' : applicant.id,
           'iin': applicant.iin,
-          'fullname': applicant.fullname,
-          'app_number': applicant.app_number, 
           'city': applicant.department.city.name,
           'department': applicant.department.name, 
           'department_code': applicant.department.id, 
-          'service': applicant.service, 
           'statusT': applicant.statusT, 
           'statusP': applicant.statusP, 
           'kpp': applicant.kpp, 
-          'category': applicant.category, 
-          'phone_number': applicant.phone_number
-            
+          'category': applicant.category
         }) 
 
 
@@ -194,7 +305,7 @@ class ExamEnrollView(APIView):
                                                                                 status=status.HTTP_400_BAD_REQUEST)
         
         
-        if Exam.objects.filter(Q(applicants__app_number=app.app_number) & Q(date=exam.date)).exists(): # Проверка записан ли пользаватель на тот же день
+        if Exam.objects.filter(Q(applicants__iin=app.iin) & Q(date=exam.date)).exists(): # Проверка записан ли пользаватель на тот же день
             return Response({'Вы уже записаны': True})
 
         # Проверки на запись на тоерию
@@ -204,43 +315,6 @@ class ExamEnrollView(APIView):
 
 
 
-
-
-class PracticeExamListViewByDepartmentAndCategory(APIView):
-    authentication_classes = [BasicAuthentication]
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request):
-
-        try:
-            dep_id = get_object_or_404(Department, pk=request.data['department_id'])
-        except Http404:
-            return JsonResponse({'error': 'Department not found.' }, status=404)
-
-
-        tomorrow = date.today() + timedelta(days=1)
-        kpp = request.data['kpp']
-        if kpp.lower() == 'механика':
-            kpp = 'MT'
-        if kpp.lower() == 'автомат':
-            kpp = 'AT'
-        category = getMainCategory(request.data['category'])
-
-        print(category, dep_id, kpp)
-        
-        practice_exams = PracticeExam.objects.filter(
-                Q(auto__department_id=dep_id) & 
-                Q(auto__category=category) & 
-                Q(auto__transmission=kpp) & 
-                Q(applicant__isnull=True) &
-                Q(date__gte=tomorrow)
-                )
-        print(practice_exams)
-        serializer = PracticeExamSerializer(practice_exams, many=True)
-        print(serializer.data)
-        return Response(serializer.data)
-
-
 class PracticeExamListView(generics.ListAPIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -248,28 +322,19 @@ class PracticeExamListView(generics.ListAPIView):
     serializer_class = PracticeExamSerializer 
 
 
-class PractcieExamEnrollView(APIView):
+
+
+class TodayPracticeExamListView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        try:
-            exam = get_object_or_404(PracticeExam, pk=request.data['exam_id'])
-        except Http404:
-            return JsonResponse({'error': 'Exam not found.'}, status=404)
-        try:
-            app = get_object_or_404(Applicant, pk=request.data['user_id'])
-        except Http404:
-             return JsonResponse({'error': 'Applicant not found.'}, status=404)
-        if exam.applicant:
-            return JsonResponse({'error': 'Exam not found.'}, status=404)
-        if app.statusT:
-            exam.applicant = app
-            exam.save()
-            return Response({'enrolled': True})
-        else:
-            return Response({"error": "Нельзя добавлять заявителей со отрицательным статусом тоеритического экзамена к практическому экзамену."},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-
-    
+    def get(self, request, department_id):
+        now = datetime.now() + timedelta(hours=6)
+        exams = PracticeExam.objects.filter(
+                 auto__department=department_id, date=now.date()
+             )
+        print(exams)
+        exams = PracticeExamDetailSerializer(exams, many=True)
+        return Response(
+          exams.data
+        )

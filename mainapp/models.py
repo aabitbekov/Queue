@@ -19,7 +19,7 @@ class City(models.Model):
 
 class Department(models.Model):
     id = models.CharField(max_length=20, verbose_name="Код Цона", primary_key=True)
-    name = models.CharField(max_length=72, verbose_name='ЦОН', unique=True)
+    name = models.CharField(max_length=72, verbose_name='ЦОН')
     address = models.CharField(max_length=126, verbose_name='Адрес местонахождения', default='')
     city = models.ForeignKey(City, on_delete=models.CASCADE, verbose_name='Город')
     haveAutodrom = models.BooleanField(default=False, verbose_name="Автодром") 
@@ -36,8 +36,8 @@ class Department(models.Model):
 
 class KazakhstanPhoneField(models.CharField):
     default_validators = [RegexValidator(
-        regex=r'^\+7\d{10}$',
-        message="Enter a valid phone number in the format: '+7XXXXXXXXXX'"
+        regex=r'^7\d{10}$',
+        message="Enter a valid phone number in the format: '7XXXXXXXXXX'"
     )]
 
     def __init__(self, *args, **kwargs):
@@ -52,15 +52,12 @@ class KazakhstanPhoneField(models.CharField):
 
 class Applicant(models.Model):
     iin = models.CharField(max_length=12, verbose_name='ИИН', unique=True, validators=[MinLengthValidator(12)])
-    fullname = models.CharField(max_length=150, verbose_name='ФИО')
-    app_number = models.CharField(max_length=12, verbose_name='Номер заявки', unique=True, validators=[MinLengthValidator(12)])
     department = models.ForeignKey(Department, on_delete=models.CASCADE, verbose_name="СпецЦОН")
-    service = models.CharField(max_length=150, verbose_name='Тип услуги')
     statusT = models.BooleanField(default=False, verbose_name="Статус ТЭ") 
     statusP = models.BooleanField(default=False, verbose_name="Статус ПЭ") 
     kpp = models.CharField(max_length=12, verbose_name="КПП")
     category =  models.CharField(max_length=8, verbose_name="Категория")
-    phone_number = KazakhstanPhoneField()
+    phone_number = KazakhstanPhoneField()   
     
     class Meta:
         verbose_name = 'Заявитель'
@@ -68,12 +65,12 @@ class Applicant(models.Model):
 
     
     def __str__(self):
-        return f'{self.app_number}'
+        return f'{self.iin}'
 
 
 class Exam(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE, verbose_name="СпецЦОН")
-    date = models.DateField(verbose_name="Дата", validators=[MinValueValidator(date.today()), MaxValueValidator(date.today() + timedelta(days=14))])
+    date = models.DateField(verbose_name="Дата", validators=[MinValueValidator(date.today()), MaxValueValidator(date.today() + timedelta(days=365))])
     time = models.TimeField(verbose_name="Время", default="9:00")
     applicants = models.ManyToManyField(Applicant, blank=True, verbose_name="Участники")
     
@@ -125,10 +122,20 @@ class Auto(models.Model):
 
 
 class PracticeExam(models.Model):
+
+    class Status(models.TextChoices):
+        IsCame = 'A', 'Явка'
+        IsNotCame = 'B', 'Не явка'
+        Other = 'С', 'Другое'
+
+
     auto = models.ForeignKey(Auto, on_delete=models.CASCADE, verbose_name="Авто")
-    date = models.DateField(verbose_name="Дата", validators=[MinValueValidator(date.today()), MaxValueValidator(date.today() + timedelta(days=14))])
+    date = models.DateField(verbose_name="Дата", validators=[MinValueValidator(date.today()), MaxValueValidator(date.today() + timedelta(days=365))])
     time = models.TimeField(verbose_name="Время", default="9:00")
     applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, verbose_name="Заявитель", null=True, blank=True)
+    status = models.CharField(max_length=1, verbose_name="Статус",
+                    choices=Status.choices,
+                    default=Status.IsCame)
 
     class Meta:
         verbose_name = 'Экзамен (практика)'

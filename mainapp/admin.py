@@ -37,8 +37,8 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 
 class ApplicantAdmin(admin.ModelAdmin):
-    list_display = ['iin', 'fullname', 'department', 'service']
-    list_filter = ['iin', 'app_number', 'department', 'service']
+    list_display = ['iin', 'department']
+    list_filter = ['iin', 'department']
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -75,6 +75,20 @@ class PracticeExamAdmin(admin.ModelAdmin):
             return qs  # Для суперпользователя отображаем все данные
         return qs.filter(Q(auto__department_id=request.user.profile.department.id) &
                         Q(date=date.today()))
+
+    
+    def get_readonly_fields(self, request, obj=None):
+        if request.user.is_superuser:
+            return ()  # No fields are read-only for superusers
+        else:
+            return [f.name for f in self.model._meta.get_fields() if f.name != 'status']  # Make all fields except 'status' read-only for regular users
+
+    # def has_change_permission(self, request, obj=None):
+    #     if request.user.is_superuser:
+    #         return True  # Superusers have full editing permissions
+    #     else:
+    #         return False if obj else True  # Regular users can only create new records, not edit existing ones
+
     
 
 class AutoAdmin(admin.ModelAdmin):
@@ -86,11 +100,20 @@ class AutoAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs  # Для суперпользователя отображаем все данные
         return qs.filter(department_id=request.user.profile.department.id)
+    
+    def get_readonly_fields(self, request, obj=None):
+        if request.user.is_superuser:
+            return () 
+        else:
+            return  ['department', 'mark', 'model', 'transmission', 'grnz', 'category']
 
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'department']
     list_filter = ['department']
 
+
+class VerifySMSAdmin(admin.ModelAdmin):
+    list_display = ['iin', 'phone_number', 'code']
 
 # Register your models here.
 admin.site.register(City, CityAdmin)
@@ -101,4 +124,4 @@ admin.site.register(Auto, AutoAdmin)
 admin.site.register(PracticeExam, PracticeExamAdmin)
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(GatewayToken)
-admin.site.register(VerifySMS)
+admin.site.register(VerifySMS, VerifySMSAdmin)
