@@ -2,12 +2,10 @@ from rest_framework import generics
 from mainapp.models import *
 from mainapp.api.serializers import *
 from rest_framework.response import Response
-from django.db.models import Count
 from django.http import JsonResponse
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
@@ -18,15 +16,18 @@ from mainapp.tasks import *
 import random
 from .getMainCategory import getMainCategory
 from .checkers import check_active_practice_exams, check_past_exams, check_count_exams
+from rest_framework.parsers import JSONParser
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class PhoneNumberVerificationView(APIView):
-    authentication_classes = [BasicAuthentication]
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
-
     def get(self, request, iin):
         phone_number = getPhoneNumberFromBMG(iin)
         if phone_number == False:
-            return Response({'error': 'Заявитель с таким иин не найден.'}, status=200)
+            return Response({'error': 'Заявитель с таким иин не найден.'}, status=status.HTTP_400_BAD_REQUEST)
         code = random.randint(100000, 999999)
         if VerifySMS.objects.filter(iin=iin).exists():
             verify = VerifySMS.objects.get(iin=iin)
@@ -34,13 +35,14 @@ class PhoneNumberVerificationView(APIView):
             verify.save()
         else:
             VerifySMS(iin=iin, code=code, phone_number=phone_number).save()
-        task = send_sms.delay(phone_number, message=f'Ваш код для авторизации {code}')  
-        return Response({'success': True}, status=200)
+        send_sms.delay(phone_number, message=f'Ваш код для авторизации {code}')  
+        return Response({'success': True}, status=status.HTTP_200_OK)
 
 
 
 class CodeVerificationView(APIView):
-    authentication_classes = [BasicAuthentication]
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -49,7 +51,7 @@ class CodeVerificationView(APIView):
             if user.code == request.data['code']:
                 res = getTheoryResults(request.data['iin'])
                 if res == False:
-                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=200)
+                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=status.HTTP_200_OK)
                 department_id = res[0]
                 category = res[1]
                 statusT = res[2]
@@ -65,16 +67,18 @@ class CodeVerificationView(APIView):
                             applicant.save
                     except Applicant.DoesNotExist:
                         applicant = Applicant.objects.get_or_create(iin=user.iin, department=dep, statusT=statusT, statusP=False, kpp="MT", category=category, phone_number=user.phone_number)
+
+
                     return Response({
-                        "id" : applicant.id,
+                        "id" : applicant.id,    
                         "iin" : applicant.iin,
                         "department_id" : applicant.department.id,
                         "city" : dep.city.name,
                         "department" : dep.name,
-                        "category" : applicant.category
-                        })
+                        "category" : applicant.category,
+                        }, status=200)
                 else:
-                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=200)
+                    return Response({'error': 'Заявитель не сдал теоритический экзамен'}, status=status.HTTP_400_BAD_REQUEST)
 
             else:
                 return Response({"success": False})
@@ -84,7 +88,8 @@ class CodeVerificationView(APIView):
 
 
 class PracticeExamListViewByDepartmentAndCategory(APIView):
-    authentication_classes = [BasicAuthentication]
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -98,7 +103,7 @@ class PracticeExamListViewByDepartmentAndCategory(APIView):
         except Applicant.DoesNotExist:
             return Response({'error': 'Applicant not found.'}, status=404)
     
-        #First Checker
+        #First Checker  
         if check_active_practice_exams(app.iin):
             return Response({'error': 'Applicant have active exam.'}, status=200)
         else:
@@ -123,12 +128,13 @@ class PracticeExamListViewByDepartmentAndCategory(APIView):
                 Q(date__gte=tomorrow)
                 )
         serializer = PracticeExamSerializer(practice_exams, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=200)
 
 
 
 class PractcieExamEnrollView(APIView):
-    authentication_classes = [BasicAuthentication]
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -159,7 +165,7 @@ class PractcieExamEnrollView(APIView):
                 exam.save()
                 
                 # print(app.phone_number, f"Вы успешно записались на практический экзамен дата {exam.date} {exam.time}. Ждем вас по адресу {exam.auto.department.address}")
-                send_sms.delay(app.phone_number, f"Вы успешно записались на практический экзамен дата {exam.date} {exam.time}. Ждем вас по адресу {exam.auto.department.address}")
+                send_sms.delay(app.phone_number, f"#{exam.id} \nВы успешно записались на практический экзамен. \nДата {exam.date}--{exam.time}.\nЖдем вас по адресу {exam.auto.department.address}")
                 return Response({'enrolled': True})
         else:
             return Response({"error": "Нельзя добавлять заявителей со отрицательным статусом тоеритического экзамена к практическому экзамену."},
@@ -167,6 +173,11 @@ class PractcieExamEnrollView(APIView):
         
 
 class ApplicantListView(generics.ListAPIView):
+
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = Applicant.objects.all()
@@ -174,6 +185,11 @@ class ApplicantListView(generics.ListAPIView):
 
 
 class ApplicantDetailListView(generics.RetrieveUpdateAPIView):
+
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = Applicant.objects.all()
@@ -181,6 +197,11 @@ class ApplicantDetailListView(generics.RetrieveUpdateAPIView):
 
 
 class CityListView(generics.ListAPIView):
+
+    parser_classes = [JSONParser]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = City.objects.all()

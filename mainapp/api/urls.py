@@ -1,11 +1,17 @@
 from django.urls import path, include
 from . import views
-
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 app_name = 'courses'
 
 
 
 urlpatterns = [
+    path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
     path('verify/<iin>/', views.PhoneNumberVerificationView.as_view()), # GET
     path('verify/', views.CodeVerificationView.as_view()), # {"iin" : "iin", "code":"code"}
     

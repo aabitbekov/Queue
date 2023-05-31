@@ -1,10 +1,9 @@
 from celery import shared_task
 from datetime import datetime, time, timedelta, date
 from django.utils import timezone
-from .models import *
 import requests
 import json
-
+from .models import Auto, Department, GatewayToken, PracticeExam
 
 @shared_task
 def clean_exams():
@@ -219,3 +218,6 @@ def getTheoryResults(iin):
         return False
     
 
+@shared_task
+def sendToTablo(exam_id, time):
+    print(exam_id, time)

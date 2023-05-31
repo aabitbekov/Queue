@@ -5,7 +5,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator, RegexVa
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
-
 class City(models.Model):
     name = models.CharField(max_length=36, verbose_name='Город', unique=True)
 
@@ -62,10 +61,10 @@ class Applicant(models.Model):
     class Meta:
         verbose_name = 'Заявитель'
         verbose_name_plural = 'Заявители'
-
     
     def __str__(self):
         return f'{self.iin}'
+
 
 
 class Exam(models.Model):
@@ -135,7 +134,7 @@ class PracticeExam(models.Model):
     applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, verbose_name="Заявитель", null=True, blank=True)
     status = models.CharField(max_length=1, verbose_name="Статус",
                     choices=Status.choices,
-                    default=Status.IsCame)
+                    default=Status.IsNotCame)
 
     class Meta:
         verbose_name = 'Экзамен (практика)'
@@ -145,11 +144,18 @@ class PracticeExam(models.Model):
            super().clean()
            if self.applicant and not self.applicant.statusT:
                 raise ValidationError("Нельзя добавлять заявителей со отрицательным статусом тоеритического экзамена к практическому экзамену.")
-
+    
+    def save(self, *args, **kwargs):
+        if self.pk:  # Check if the instance already exists in the database
+            original_instance = PracticeExam.objects.get(pk=self.pk)
+            if original_instance.status == PracticeExam.Status.IsNotCame and self.status == PracticeExam.Status.IsCame:
+                  # Call your custom method for handling the status change
+                print(f"Hello from {self.pk}")
+                
+        super().save(*args, **kwargs)
     def __str__(self):
         return f'{self.auto.department.name} , {self.date}, {self.time}'
-
-
+    
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
